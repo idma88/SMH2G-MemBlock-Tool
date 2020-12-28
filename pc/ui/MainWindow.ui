@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>408</width>
+    <height>185</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Segnetics SMH 2G memory block backup/restore tool</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="ui.qrc">
+    <normaloff>:/icons/icons/main.png</normaloff>:/icons/icons/main.png</iconset>
+  </property>
+  <property name="toolButtonStyle">
+   <enum>Qt::ToolButtonIconOnly</enum>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="1" column="0">
+     <widget class="QPushButton" name="btnBackup">
+      <property name="minimumSize">
+       <size>
+        <width>192</width>
+        <height>96</height>
+       </size>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset resource="ui.qrc">
+        <normaloff>:/icons/icons/backup.png</normaloff>:/icons/icons/backup.png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>192</width>
+        <height>96</height>
+       </size>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QPushButton" name="btnRestore">
+      <property name="minimumSize">
+       <size>
+        <width>192</width>
+        <height>96</height>
+       </size>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset resource="ui.qrc">
+        <normaloff>:/icons/icons/restore.png</normaloff>:/icons/icons/restore.png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>192</width>
+        <height>96</height>
+       </size>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0" colspan="2">
+     <widget class="QProgressBar" name="progress">
+      <property name="value">
+       <number>0</number>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0" colspan="2">
+     <widget class="QWidget" name="widget" native="true">
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <property name="margin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>COM port</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="cbComPort">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnScanPorts">
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ui.qrc">
+           <normaloff>:/icons/icons/update.png</normaloff>:/icons/icons/update.png</iconset>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources>
+  <include location="ui.qrc"/>
+ </resources>
+ <connections/>
+ <slots>
+  <signal>ChangeUiState(bool)</signal>
+  <signal>SetCapture(bool)</signal>
+  <signal>SetLiveView(bool)</signal>
+  <signal>ApplyConfig()</signal>
+  <signal>OpenSettings()</signal>
+  <signal>StorageSeek(uint32_t)</signal>
+  <signal>SetSwitch(int)</signal>
+  <slot>OnSetVideoOutputFC()</slot>
+  <slot>OnSetVideoOutputDVI()</slot>
+  <slot>OnSetThinning(int)</slot>
+  <slot>OnSetChannelSpeed265()</slot>
+  <slot>OnSetChannelSpeed531()</slot>
+  <slot>OnSetChannelSpeed1062()</slot>
+  <slot>OnSetFilterOn()</slot>
+  <slot>OnSetFilterOff()</slot>
+  <slot>OnSetCompression(int)</slot>
+  <slot>OnApplyConfig()</slot>
+  <slot>OnSetSwitch(int)</slot>
+  <slot>OnPlay()</slot>
+  <slot>OnStop()</slot>
+  <slot>OnRecord()</slot>
+  <slot>OnSetPlayNext(int)</slot>
+  <slot>OnSaveFrame()</slot>
+  <slot>OnSelectFrameFile()</slot>
+  <slot>OnSendFrame()</slot>
+  <slot>OnSetUiState(bool)</slot>
+  <slot>OnSetCapture(bool)</slot>
+  <slot>OnSetLiveView(bool)</slot>
+  <slot>OnOpenSettings()</slot>
+  <slot>OnStorageSeek(int)</slot>
+  <slot>OnSliderPressed()</slot>
+  <slot>OnSliderReleased()</slot>
+  <slot>OnListSelectionChanged()</slot>
+  <slot>OnListItemDoubleClick(QTreeWidgetItem*,int)</slot>
+ </slots>
+</ui>
