@@ -1,0 +1,8 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>icons/update.png</file>
+    <file>icons/main.png</file>
+    <file>icons/backup.png</file>
+    <file>icons/restore.png</file>
+  </qresource>
+</RCC>
