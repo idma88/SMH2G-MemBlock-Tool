@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This is an independent project of an individual developer. Dear PVS-Studio, please check it.
  * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
@@ -23,12 +23,11 @@ namespace MemBlockTool
 
         std::vector<std::string>::iterator it =
             std::find_if(portList.begin(), portList.end(), [&port](const std::string& item) {
-                return strcmpi(port.c_str(), item.c_str()) == 0;
+                return boost::iequals(port, item);
             });
 
         if (it == portList.end()) return false;
 
-        //m_port = port;
         m_portNum = atoi(port.c_str() + strlen("COM"));
 
         return false;
