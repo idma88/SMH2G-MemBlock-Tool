@@ -12,8 +12,8 @@ include(${QT_USE_FILE})
 
 set(src
     main.cpp
-	logic.h
-	logic.cpp
+    logic.h
+    logic.cpp
 )
 
 set(ext
@@ -37,13 +37,13 @@ set(ui
 
 ### QT ### 
 set(MOC_HEADERS ${ui_h})
-QT4_wrap_cpp(MOC_SOURCES ${MOC_HEADERS})
+QT4_WRAP_CPP(MOC_SOURCES ${MOC_HEADERS})
 
 set(UI_FORMS ui/MainWindow.ui)
-qt4_wrap_ui(UI_HEADERS ${UI_FORMS})
+QT4_WRAP_UI(UI_HEADERS ${UI_FORMS})
 
 set(UI_RESOURCES ui/ui.qrc)
-QT4_add_resources(UI_RESOURCES_QRC ${UI_RESOURCES})
+QT4_ADD_RESOURCES(UI_RESOURCES_QRC ${UI_RESOURCES})
 
 ### Groups ####
 source_group(ui			FILES ${ui_h} ${ui_cpp} ${UI_FORMS} ${UI_RESOURCES})
@@ -57,9 +57,9 @@ include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS}) 
 
 add_executable(${PROJECT_NAME}
-	${src} ${ext}
-	${ui} ${UI_FORMS} ${UI_RESOURCES}
-	${MOC_SOURCES} ${UI_HEADERS} ${UI_RESOURCES_QRC}
+    ${src} ${ext}
+    ${ui} ${UI_FORMS} ${UI_RESOURCES}
+    ${MOC_SOURCES} ${UI_HEADERS} ${UI_RESOURCES_QRC}
 )
 
 if(WIN32)
@@ -71,7 +71,7 @@ if(WIN32)
 
     target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} ${QT_LIBRARIES})
 
-#    set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "${COMPILE_DEFINITIONS}")
+    #set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "${COMPILE_DEFINITIONS}")
 
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /OPT:NOREF /SAFESEH:NO /ENTRY:\"mainCRTStartup\"" )
 endif(WIN32)
