@@ -40,5 +40,16 @@ namespace MemBlockTool
         uint8_t length;
     };
 
+    // Скорость COM порта
+    const unsigned long BAUDRATE = 115200;
+
+    // Количество EEPROM-микросхем
+    const uint8_t CHIP_COUNT = 4;
+
+    // Максимальный адрес EEPROM
+    const uint16_t CHIP_MAX_ADDR = 65535;
+
+    // Размер буфера
+    const uint16_t BUFF_SIZE = 256;
 } // namespace MemBlockTool
 #endif // !__PROTOCOL_H__
