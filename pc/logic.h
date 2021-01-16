@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "ext/xserial.hpp"
+#include "../arduino/protocol.h"
 #include <boost/filesystem.hpp>
 #include <boost/shared_array.hpp>
 #include <boost/shared_ptr.hpp>

@@ -1,21 +1,9 @@
-/*
+﻿/*
  * This is an independent project of an individual developer. Dear PVS-Studio, please check it.
  * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include "logic.h"
-
-// Скорость COM порта
-const unsigned long BAUDRATE = 115200;
-
-// Количество EEPROM-микросхем
-const uint8_t CHIP_COUNT = 4;
-
-// Максимальный адрес EEPROM
-const uint16_t CHIP_MAX_ADDR = 65535;
-
-// Размер буфера
-const uint16_t BUFF_SIZE = 256;
 
 namespace MemBlockTool
 {
