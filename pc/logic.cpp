@@ -30,7 +30,7 @@ namespace MemBlockTool
 
         m_portNum = atoi(port.c_str() + strlen("COM"));
 
-        return false;
+        return true;
     }
 
     bool CLogic::SetCallback(const TCallbackProgress& callback)
@@ -45,17 +45,22 @@ namespace MemBlockTool
     {
         std::unique_lock<std::mutex> lock(m_mutex);
 
-        boost::shared_ptr<xserial::ComPort> com(new xserial::ComPort(m_portNum, BAUDRATE),
-                                                [](xserial::ComPort* pCom) {
-                                                    pCom->close();
-                                                    delete pCom;
-                                                });
-
         TBuffer        pBuffer(new uint8_t[BUFF_SIZE]);
         uint32_t       chipReadBytes = 0;
         uint32_t       transferBytes = 0;
         const uint32_t totalBytes    = CHIP_COUNT * CHIP_MAX_ADDR;
         SResponse      response;
+
+        m_com.reset(new xserial::ComPort(m_portNum, BAUDRATE), [](xserial::ComPort* pCom) {
+            pCom->close();
+            delete pCom;
+        });
+
+        if (!m_com->getStateComPort())
+        {
+            // TODO Error message: Failed to open port
+            return false;
+        }
 
         boost::shared_ptr<std::ofstream> pFile(
             new std::ofstream(filename, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc),
@@ -210,16 +215,16 @@ namespace MemBlockTool
         if (data.code == ECommand::WRITE) memcpy(&req->pPayload, data.pPayload, data.param);
 
         // Send request
-        if (!m_com.write((char*)pBuffer.get(), buffSize)) return SResponse { EStatus::ERR, ERR_WRITE };
+        if (!m_com->write((char*)req, buffSize)) return SResponse { EStatus::ERR, ERR_WRITE };
 
         // Get status
-        if (m_com.read((char*)&response, sizeof(response)) != sizeof(response))
+        if (m_com->read((char*)&response, sizeof(response)) != sizeof(response))
             return SResponse { EStatus::ERR, ERR_ANSWER };
 
         if (response.code == EStatus::OK && data.code == ECommand::READ)
         {
             // Get payload
-            if (m_com.read((char*)data.pPayload, response.length) != response.length)
+            if (m_com->read((char*)data.pPayload, response.length) != response.length)
                 return SResponse { EStatus::ERR, ERR_DATA_PARTIAL };
         }
 

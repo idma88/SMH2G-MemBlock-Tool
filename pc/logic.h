@@ -121,7 +121,7 @@ namespace MemBlockTool
         TCallbackProgress m_callbackProgress = nullptr;
 
         // Интерфейс COM-порта
-        xserial::ComPort m_com;
+        boost::shared_ptr<xserial::ComPort> m_com;
 
         std::mutex m_mutex;
     };
