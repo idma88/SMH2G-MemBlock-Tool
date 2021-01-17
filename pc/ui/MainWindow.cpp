@@ -12,9 +12,10 @@ namespace MemBlockTool
     {
         m_ui.setupUi(this);
 
-        connect(m_ui.btnRestore, SIGNAL(clicked()), this, SLOT(OnRestore()));
         connect(m_ui.btnScanPorts, SIGNAL(clicked()), this, SLOT(OnRescanPorts()));
+        connect(m_ui.btnBackup, SIGNAL(clicked()), this, SLOT(OnBackup()));
         connect(m_ui.btnRestore, SIGNAL(clicked()), this, SLOT(OnRestore()));
+
         connect(this, SIGNAL(UiState(bool)), this, SLOT(OnUiState(bool)));
         connect(this, SIGNAL(RescanPorts()), this, SLOT(OnRescanPorts()));
 
@@ -31,6 +32,19 @@ namespace MemBlockTool
     void CMainWindow::OnBackup()
     {
         emit UiState(false);
+
+        if (!m_logic.SetPort(m_ui.cbComPort->currentText().toStdString()))
+        {
+            // TODO Error message
+            return;
+        }
+
+        if (!m_logic.Backup("D:/firmware.bin"))
+        {
+            // TODO Error message
+            return;        
+        }
+
         // TODO
         emit UiState(true);
     }
