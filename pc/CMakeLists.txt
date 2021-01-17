@@ -14,6 +14,7 @@ set(src
     main.cpp
     logic.h
     logic.cpp
+    ../arduino/protocol.h
 )
 
 set(ext
