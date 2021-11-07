@@ -166,13 +166,6 @@ namespace MemBlockTool {
       return; // false;
     }
 
-    // std::shared_ptr<std::ofstream> pFile(
-    //     new std::ofstream(filename, std::ios::out | std::ios::binary | std::ios::trunc),
-    //     [](std::ofstream* f) {
-    //         f->close();
-    //         delete f;
-    //     });
-
     std::ofstream _File(filename.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
 
     if (!_File.is_open()) {
