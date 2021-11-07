@@ -1,130 +1,114 @@
-#ifndef __LOGIC_H__
-#define __LOGIC_H__
+#pragma once
 
 #include <algorithm>
+#include <fstream>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "ext/xserial.hpp"
-#include "../arduino/protocol.h"
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/shared_array.hpp>
-#include <boost/shared_ptr.hpp>
+
+#include "../arduino/Protocol.h"
+#include "ErrorMessage.h"
 
 #define ARDUINO_BRIDGE 1
 
-namespace MemBlockTool
-{
-    class CLogic
-    {
-      public:
-        // Тип callback-функции прогресса выполнения
-        typedef std::function<void(int)> TCallbackProgress;
+namespace MemBlockTool {
+  class Logic : public ErrorMessage
+  {
+  public:
+    /// Тип callback-функции прогресса выполнения
+    typedef std::function<void(int)> TCallbackProgress;
 
-        const uint8_t ERR_WRITE        = 0xF0;
-        const uint8_t ERR_ANSWER       = 0xF1;
-        const uint8_t ERR_DATA_PARTIAL = 0xF2;
+    /// Тип callback-функции окончания выполнения задачи
+    typedef std::function<void(bool)> TCallbackTaskEnd;
 
-      public:
-        /**
-         * Конструктор
-         */
-        CLogic();
-        /**
-         * Деструктор
-         */
-        ~CLogic();
+    const uint8_t ERR_WRITE        = 0xF0;
+    const uint8_t ERR_ANSWER       = 0xF1;
+    const uint8_t ERR_DATA_PARTIAL = 0xF2;
 
-        /**
-         * Устанавливает COM-порт для связи
-         * @param portName - [in] Имя порта
-         * @return Возвращает true в случае успеха или false при возникновении ошибки
-         */
-        bool SetPort(const std::string& portName);
+  public:
+    /**
+     * Конструктор
+     */
+    Logic();
+    /**
+     * Деструктор
+     */
+    ~Logic();
 
-        /**
-         * Устанавливает callback-функцию контроля прогресса
-         * @param callback - [in] Callback-функция
-         * @return Возвращает true в случае успеха или false при возникновении ошибки
-         */
-        bool SetCallback(const TCallbackProgress& callback);
+    /**
+     * Устанавливает COM-порт для связи
+     * @param portName - [in] Имя порта
+     * @return Возвращает true в случае успеха или false при возникновении ошибки
+     */
+    bool SetPort(const std::string& portName);
 
-        /**
-         * Производит резервное копировании из EEPROM в файл
-         * @param filename - [in] Путь к файлу
-         * @return Возвращает true в случае успеха или false при возникновении ошибки
-         */
-        bool Backup(const std::string& filename);
+    /**
+     * Устанавливает callback-функцию контроля прогресса
+     * @param callback - [in] Callback-функция
+     * @return Возвращает true в случае успеха или false при возникновении ошибки
+     */
+    bool SetCallbackProgress(const TCallbackProgress& callback);
 
-        /**
-         * Производит восстановление резервной копии из файла в EEPROM
-         * @param filename - [in] Путь к файлу
-         * @return Возвращает true в случае успеха или false при возникновении ошибки
-         */
-        bool Restore(const std::string& filename);
+    /**
+     * Устанавливает callback-функцию окончания выполнения задачи
+     * @param callback - [in] Callback-функция
+     * @return Возвращает true в случае успеха или false при возникновении ошибки
+     */
+    bool SetCallbackTaskEnd(const TCallbackTaskEnd& callback);
 
-      public:
-        /**
-         * Получает список всех доступных COM-портов
-         * @return Список доступных COM-портов
-         */
-        static std::vector<std::string> GetPortList();
+    /**
+     * Производит резервное копировании из EEPROM в файл
+     * @param filename - [in] Путь к файлу
+     * @return Возвращает true в случае успеха или false при возникновении ошибки
+     */
+    bool Backup(const std::string& filename);
 
-      private:
-        typedef boost::shared_array<uint8_t> TBuffer;
+    /**
+     * Производит восстановление резервной копии из файла в EEPROM
+     * @param filename - [in] Путь к файлу
+     * @return Возвращает true в случае успеха или false при возникновении ошибки
+     */
+    bool Restore(const std::string& filename);
 
-        // Коды команд
-        enum ECommand : char
-        {
-            UNKNOWN     = 0,
-            CHIP_SELECT = 'C',
-            ADDRESS     = 'A',
-            READ        = 'R',
-            WRITE       = 'W'
-        };
+  public:
+    /**
+     * Получает список всех доступных COM-портов
+     * @return Список доступных COM-портов
+     */
+    static std::vector<std::string> GetPortList();
 
-        // Коды ответов
-        enum EStatus : char
-        {
-            UNDEF = 0,
-            OK    = 'O',
-            ERR   = 'E'
-        };
+  private:
+    typedef std::vector<uint8_t> TBuffer;
 
-        // Структура запроса
-        struct SRequest
-        {
-            ECommand code /* = ECommand::UNKNOWN */;
-            uint16_t param /* = 0 */;
-            uint8_t* pPayload /* = nullptr */;
-        };
+  private:
+    Response ComRPC(Request data);
 
-        // Структура ответа
-        struct SResponse
-        {
-            EStatus code /* = EAnswer::UNDEF */;
-            uint8_t length /* = 0 */;
-        };
+    void BackupProc(const std::string& filename);
 
-      private:
-        SResponse ComRPC(SRequest data);
+    void RestoreProc(const std::string& filename);
 
-      private:
-        // Выбранный COM-порт
-        uint8_t m_portNum = 0;
-        // std::string m_port = "";
+  private:
+    /// Выбранный COM-порт
+    uint8_t m_portNum;
 
-        // Callback функция прогресса выполнения
-        TCallbackProgress m_callbackProgress = nullptr;
+    /// Callback функция прогресса выполнения
+    TCallbackProgress m_callbackProgress;
 
-        // Интерфейс COM-порта
-        boost::shared_ptr<xserial::ComPort> m_com;
+    /// Callback функция окончания выполнения задачи
+    TCallbackTaskEnd m_callbackTaskEnd;
 
-        std::mutex m_mutex;
-    };
+    /// Интерфейс COM-порта
+    std::shared_ptr<xserial::ComPort> m_com;
+
+    /// Мьютекс для блокировки одновременного выполнения нескольких задач
+    std::mutex m_mutexProc;
+
+    std::thread m_proc;
+  };
 
 } // namespace MemBlockTool
-#endif // !__LOGIC_H__

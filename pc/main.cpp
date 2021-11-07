@@ -1,12 +1,10 @@
-/*
- * This is an independent project of an individual developer. Dear PVS-Studio, please check it.
- * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
- */
+// This is an independent project of an individual developer. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
-#include <QTextCodec>
-#include <QtGui/QApplication>
+// #include <QTextCodec>
+#include <QApplication>
 
-#include "logic.h"
+#include "Logic.h"
 #include "ui/MainWindow.h"
 
 // Строковая метка, используемая для предотвращения повторного запуска
@@ -23,40 +21,39 @@ const std::string DUPLICATE_PREVENTION_TAG = "prevent_duplicates.mbt";
  */
 inline bool CheckIfDuplicateApp(const std::string& tag, bool& isDuplicate)
 {
-    void*         hPreventDuplicates = ::CreateMutexA(NULL, 0, tag.c_str());
-    unsigned long err                = ::GetLastError();
+  void*         hPreventDuplicates = ::CreateMutexA(NULL, 0, tag.c_str());
+  unsigned long err                = ::GetLastError();
 
-    if (hPreventDuplicates == NULL)
-    {
-        if (err != ERROR_ACCESS_DENIED) return false;
-        isDuplicate = true;
-    }
-    else
-    {
-        isDuplicate = (err == ERROR_ALREADY_EXISTS);
-        if (isDuplicate) ::CloseHandle(hPreventDuplicates);
-    }
+  if (hPreventDuplicates == NULL) {
+    if (err != ERROR_ACCESS_DENIED) return false;
+    isDuplicate = true;
+  } else {
+    isDuplicate = (err == ERROR_ALREADY_EXISTS);
+    if (isDuplicate) ::CloseHandle(hPreventDuplicates);
+  }
 
-    return true;
+  return true;
 }
 
 // Точка входа в приложение
 int main(int argc, char* argv[])
 {
-    bool isDuplicate;
-    if (!CheckIfDuplicateApp(DUPLICATE_PREVENTION_TAG, isDuplicate)) return -1;
-    if (isDuplicate) return -1;
+  bool isDuplicate;
+  if (!CheckIfDuplicateApp(DUPLICATE_PREVENTION_TAG, isDuplicate)) return -1;
+  if (isDuplicate) return -1;
 
-    QApplication::setStyle("cleanlooks");
-    QApplication app(argc, argv);
-    QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
+  QApplication::setStyle("cleanlooks");
+  QApplication app(argc, argv);
+  // QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
 
-    MemBlockTool::CLogic logic;
+  MemBlockTool::Logic logic;
 
-    MemBlockTool::CMainWindow wnd(
-        logic, NULL, Qt::CustomizeWindowHint | Qt::WindowMinimizeButtonHint | Qt::WindowCloseButtonHint);
+  MemBlockTool::MainWindow wnd(logic,
+                               NULL,
+                               Qt::CustomizeWindowHint | Qt::WindowMinimizeButtonHint |
+                                 Qt::WindowCloseButtonHint);
 
-    wnd.show();
+  wnd.show();
 
-    return app.exec();
+  return app.exec();
 }

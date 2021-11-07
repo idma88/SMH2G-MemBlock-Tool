@@ -1,237 +1,297 @@
-/*
- * This is an independent project of an individual developer. Dear PVS-Studio, please check it.
- * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
- */
+// This is an independent project of an individual developer. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
-#include "logic.h"
+#include "Logic.h"
 
-namespace MemBlockTool
-{
-    CLogic::CLogic()
-    {
-    }
+#define ERR_MSG_OPEN_PORT    "Не удалось открыть порт"
+#define ERR_MSG_OPEN_FILE    "Не удалось открыть файл"
+#define ERR_MSG_SELECT_CHIP  "Не удалось выбрать чип EEPROM"
+#define ERR_MSG_SET_ADDRESS  "Не удалось установить адрес в EEPROM"
+#define ERR_MSG_READ_EEPROM  "Не удалось прочитать данные из EEPROM"
+#define ERR_MSG_WRITE_EEPROM "Не удалось прочитать данные из EEPROM"
 
-    CLogic::~CLogic()
-    {
-    }
+namespace MemBlockTool {
+  Logic::Logic()
+    : ErrorMessage()
+    , m_portNum(0)
+    , m_callbackProgress(nullptr)
+    , m_callbackTaskEnd(nullptr)
+  {}
 
-    bool CLogic::SetPort(const std::string& port)
-    {
-        if (port.length() == 0) return false;
+  Logic::~Logic()
+  {
+    m_com->close();
 
-        std::vector<std::string> portList = GetPortList();
+    if (m_proc.joinable()) m_proc.join();
+  }
 
-        std::vector<std::string>::iterator it =
-            std::find_if(portList.begin(), portList.end(), [&port](const std::string& item) {
-                return boost::iequals(port, item);
-            });
+  bool Logic::SetPort(const std::string& port)
+  {
+    if (port.length() == 0) return false;
 
-        if (it == portList.end()) return false;
+    std::vector<std::string> portList = GetPortList();
 
-        m_portNum = atoi(port.c_str() + strlen("COM"));
+    auto iequals = [](char a, char b) { return tolower(a) == tolower(b); };
 
-        return true;
-    }
+    std::vector<std::string>::iterator it =
+      std::find_if(portList.begin(), portList.end(), [&port, &iequals](const std::string& item) {
+        return std::equal(port.begin(), port.end(), item.begin(), item.end(), iequals);
+      });
 
-    bool CLogic::SetCallback(const TCallbackProgress& callback)
-    {
-        if (callback == nullptr) return false;
+    if (it == portList.end()) return false;
 
-        m_callbackProgress = callback;
-        return true;
-    }
+    m_portNum = atoi(port.c_str() + strlen("COM"));
 
-    bool CLogic::Backup(const std::string& filename)
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
+    return true;
+  }
 
-        TBuffer        pBuffer(new uint8_t[BUFF_SIZE]);
-        uint32_t       chipReadBytes = 0;
-        uint32_t       transferBytes = 0;
-        const uint32_t totalBytes    = CHIP_COUNT * CHIP_MAX_ADDR;
-        SResponse      response;
+  bool Logic::SetCallbackProgress(const TCallbackProgress& callback)
+  {
+    if (callback == nullptr) return false;
 
-        m_com.reset(new xserial::ComPort(m_portNum, BAUDRATE), [](xserial::ComPort* pCom) {
-            pCom->close();
-            delete pCom;
-        });
+    m_callbackProgress = callback;
+    return true;
+  }
 
-        if (!m_com->getStateComPort())
-        {
-            // TODO Error message: Failed to open port
-            return false;
-        }
+  bool Logic::SetCallbackTaskEnd(const TCallbackTaskEnd& callback)
+  {
+    if (callback == nullptr) return false;
 
-        boost::shared_ptr<std::ofstream> pFile(
-            new std::ofstream(filename, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc),
-            [](std::ofstream* f) {
-                f->close();
-                delete f;
-            });
+    m_callbackTaskEnd = callback;
+    return true;
+  }
 
-        if (!pFile->is_open())
-        {
-            // TODO Set error message
-            return false;
-        }
+  bool Logic::Backup(const std::string& filename)
+  {
+    std::unique_lock<std::mutex> lock(m_mutexProc);
 
-        if (m_callbackProgress) m_callbackProgress(0);
+    m_proc.swap(std::thread(&Logic::BackupProc, this, filename));
 
-        for (uint8_t chip = 0; chip < CHIP_COUNT; ++chip)
-        {
-            // Select chip
-            if (ComRPC(SRequest { ECommand::CHIP_SELECT, (uint16_t)chip, nullptr }).code != OK)
-            {
-                // TODO Set error message
-                return false;
-            }
+    return true;
+  }
 
-            // Set address
-            if (ComRPC(SRequest { ECommand::ADDRESS, 0, nullptr }).code != OK)
-            {
-                // TODO Set error message
-                return false;
-            }
+  bool Logic::Restore(const std::string& filename)
+  {
+    std::unique_lock<std::mutex> lock(m_mutexProc);
 
-            chipReadBytes = 0;
-            do
-            {
-                // Read EEPROM
-                response = ComRPC(SRequest { ECommand::READ, BUFF_SIZE, pBuffer.get() });
-                if (response.code != OK)
-                {
-                    // TODO Set error message
-                    return false;
-                }
+    m_proc.swap(std::thread(&Logic::RestoreProc, this, filename));
 
-                pFile->write((char*)pBuffer.get(), response.length);
+    return true;
+  }
 
-                chipReadBytes += response.length;
-                transferBytes += response.length;
+  std::vector<std::string> Logic::GetPortList()
+  {
+    xserial::ComPort         com;
+    std::vector<std::string> portList;
 
-                if (m_callbackProgress) m_callbackProgress((int)100 * transferBytes / totalBytes);
-            } while (chipReadBytes < CHIP_MAX_ADDR);
-        }
+    com.getListSerialPorts(portList);
 
-        if (m_callbackProgress) m_callbackProgress(100);
-        return true;
-    }
+    return portList;
+  }
 
-    bool CLogic::Restore(const std::string& filename)
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-
-        TBuffer        pBuffer(new uint8_t[BUFF_SIZE]);
-        uint32_t       chipWriteBytes = 0;
-        uint32_t       transferBytes  = 0;
-        const uint32_t totalBytes     = CHIP_COUNT * CHIP_MAX_ADDR;
-        SResponse      response;
-
-        if (!(boost::filesystem::exists(filename) && boost::filesystem::is_regular_file(filename)))
-        {
-            // TODO Set error message
-            return false;
-        }
-
-        boost::shared_ptr<std::ifstream> pFile(
-            new std::ifstream(filename, std::ios_base::in | std::ios_base::binary), [](std::ifstream* f) {
-                f->close();
-                delete f;
-            });
-
-        if (!pFile->is_open())
-        {
-            // TODO Set error message
-            return false;
-        }
-
-        if (m_callbackProgress) m_callbackProgress(0);
-
-        for (uint8_t chip = 0; chip < CHIP_COUNT; ++chip)
-        {
-            // Select chip
-            if (ComRPC(SRequest { ECommand::CHIP_SELECT, (uint16_t)chip, nullptr }).code != OK)
-            {
-                // TODO Set error message
-                return false;
-            }
-
-            // Set address
-            if (ComRPC(SRequest { ECommand::ADDRESS, 0, nullptr }).code != OK)
-            {
-                // TODO Set error message
-                return false;
-            }
-
-            chipWriteBytes = 0;
-            do
-            {
-                pFile->read((char*)pBuffer.get(), BUFF_SIZE);
-
-                if (pFile->gcount() == 0) break;
-
-                // Write EEPROM
-                response = ComRPC(SRequest { ECommand::WRITE, (uint16_t)pFile->gcount(), pBuffer.get() });
-                if (response.code != OK)
-                {
-                    // TODO Set error message
-                    return false;
-                }
-
-                chipWriteBytes += response.length;
-                transferBytes += response.length;
-
-                if (m_callbackProgress) m_callbackProgress((int)100 * transferBytes / totalBytes);
-            } while (chipWriteBytes < CHIP_MAX_ADDR);
-        }
-
-        if (m_callbackProgress) m_callbackProgress(100);
-        return true;
-    }
-
-    std::vector<std::string> CLogic::GetPortList()
-    {
-        xserial::ComPort         com;
-        std::vector<std::string> portList;
-
-        com.getListSerialPorts(portList);
-
-        return portList;
-    }
-
-    CLogic::SResponse CLogic::ComRPC(CLogic::SRequest data)
-    {
+  Response Logic::ComRPC(Request data)
+  {
 #if ARDUINO_BRIDGE
-        uint16_t buffSize = sizeof(data.code) + sizeof(data.param);
-        if (data.code == ECommand::WRITE) buffSize += data.param;
+    unsigned long _readed;
 
-        TBuffer   pBuffer(new uint8_t[buffSize]);
-        SResponse response;
-        SRequest* req = reinterpret_cast<SRequest*>(pBuffer.get());
+    uint16_t buffSize = sizeof(data.code) + sizeof(data.param);
+    if (data.code == CommandCode::WRITE) buffSize += data.param;
 
-        // Make request + payload (if exist)
-        req->code  = data.code;
-        req->param = data.param;
-        if (data.code == ECommand::WRITE) memcpy(&req->pPayload, data.pPayload, data.param);
+    TBuffer  pBuffer(buffSize);
+    Response response;
+    Request* req = reinterpret_cast<Request*>(pBuffer.data());
 
-        // Send request
-        if (!m_com->write((char*)req, buffSize)) return SResponse { EStatus::ERR, ERR_WRITE };
+    // Make request + payload (if exist)
+    req->code  = data.code;
+    req->param = data.param;
+    if (data.code == CommandCode::WRITE) memcpy(&req->pPayload, data.pPayload, data.param);
 
-        // Get status
-        if (m_com->read((char*)&response, sizeof(response)) != sizeof(response))
-            return SResponse { EStatus::ERR, ERR_ANSWER };
+    // Send request
+    if (!m_com->write((char*)req, buffSize)) {
+      return Response{ StatusCode::ERR, ERR_WRITE };
+    }
 
-        if (response.code == EStatus::OK && data.code == ECommand::READ)
-        {
-            // Get payload
-            if (m_com->read((char*)data.pPayload, response.length) != response.length)
-                return SResponse { EStatus::ERR, ERR_DATA_PARTIAL };
+    // char tmpBuff[3] = { 0x43, 0, 0 };
+    // m_com->write(tmpBuff, 3);
+
+    // uint8_t b[100];
+    // m_com->read((char*)&b[0], m_com->bytesToRead());
+
+    // Get status
+    while (m_com->bytesToRead() < sizeof(response)) {
+    }
+
+    // if (m_com->read((char*)&response, sizeof(response)) != sizeof(response))
+    _readed = m_com->read((char*)&response, sizeof(response));
+    if (_readed != sizeof(response)) {
+      return Response{ StatusCode::ERR, ERR_ANSWER };
+    }
+
+    if (response.code == StatusCode::OK && data.code == CommandCode::READ) {
+      // Get payload
+      // if (m_com->read((char*)data.pPayload, response.param) != response.param)
+
+      while (m_com->bytesToRead() == 0) {
+      }
+
+      _readed = m_com->read((char*)data.pPayload, response.param);
+      if (_readed != response.param) {
+        return Response{ StatusCode::ERR, ERR_DATA_PARTIAL };
+      }
+    }
+
+    return response;
+#else
+    // For USB-I2C converter
+    return Response{ StatusCode::ERR, 0xFF };
+#endif // ARDUINO_BRIDGE
+  }
+
+  void Logic::BackupProc(const std::string& filename)
+  {
+    TBuffer        pBuffer(BUFF_SIZE);
+    uint32_t       chipReadBytes = 0;
+    uint32_t       transferBytes = 0;
+    const uint32_t totalBytes    = CHIP_COUNT * CHIP_MAX_ADDR;
+    Response       response;
+
+    m_com.reset(new xserial::ComPort(m_portNum, BAUDRATE), [](xserial::ComPort* pCom) {
+      pCom->close();
+      delete pCom;
+    });
+
+    if (!m_com->getStateComPort()) {
+      SetErrorMessage(ERR_MSG_OPEN_PORT);
+      if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+      return; // false;
+    }
+
+    // std::shared_ptr<std::ofstream> pFile(
+    //     new std::ofstream(filename, std::ios::out | std::ios::binary | std::ios::trunc),
+    //     [](std::ofstream* f) {
+    //         f->close();
+    //         delete f;
+    //     });
+
+    std::ofstream _File(filename.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+
+    if (!_File.is_open()) {
+      SetErrorMessage(ERR_MSG_OPEN_FILE);
+      if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+      return; // false;
+    }
+
+    if (m_callbackProgress) m_callbackProgress(0);
+
+    for (uint8_t chip = 0; chip < CHIP_COUNT; ++chip) {
+      // Select chip
+      response = ComRPC(Request{ CommandCode::CHIP_SELECT, (uint16_t)chip, nullptr });
+      if (response.code != OK) {
+        SetErrorMessage(ERR_MSG_SELECT_CHIP);
+        return; // false;
+      }
+
+      for (uint32_t addr = 0; addr < CHIP_MAX_ADDR; addr += BUFF_SIZE) {
+        // Set address
+        response = ComRPC(Request{ CommandCode::ADDRESS, (uint16_t)addr, nullptr });
+        if (response.code != OK) {
+          SetErrorMessage(ERR_MSG_SET_ADDRESS);
+          if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+          return; // false;
         }
 
-        return response;
-#else
-        // TODO For USB-I2C converter
-        return SResponse { EStatus::ERR, 0xFF };
-#endif // ARDUINO_BRIDGE
+        // Read EEPROM
+        response = ComRPC(Request{ CommandCode::READ, BUFF_SIZE, pBuffer.data() });
+        if (response.code != OK) {
+          SetErrorMessage(ERR_MSG_READ_EEPROM);
+          if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+          return; // false;
+        }
+
+        _File.write((char*)pBuffer.data(), response.param);
+
+        chipReadBytes += response.param;
+        transferBytes += response.param;
+
+        if (m_callbackProgress) m_callbackProgress((int)100 * transferBytes / totalBytes);
+      }
     }
+
+    if (m_callbackProgress) m_callbackProgress(100);
+    if (m_callbackTaskEnd) m_callbackTaskEnd(true);
+    return; // true;
+  }
+
+  void Logic::RestoreProc(const std::string& filename)
+  {
+    TBuffer        pBuffer(BUFF_SIZE);
+    uint32_t       chipWriteBytes = 0;
+    uint32_t       transferBytes  = 0;
+    const uint32_t totalBytes     = CHIP_COUNT * CHIP_MAX_ADDR;
+    Response       response;
+
+    m_com.reset(new xserial::ComPort(m_portNum, BAUDRATE), [](xserial::ComPort* pCom) {
+      pCom->close();
+      delete pCom;
+    });
+
+    if (!m_com->getStateComPort()) {
+      SetErrorMessage(ERR_MSG_OPEN_PORT);
+      if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+      return; // false;
+    }
+
+    std::ifstream _File(filename.c_str(), std::ios::in | std::ios::binary);
+
+    if (!_File.is_open()) {
+      SetErrorMessage(ERR_MSG_OPEN_FILE);
+      if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+      return; // false;
+    }
+
+    if (m_callbackProgress) m_callbackProgress(0);
+
+    for (uint8_t chip = 0; chip < CHIP_COUNT; ++chip) {
+      // Select chip
+      response = ComRPC(Request{ CommandCode::CHIP_SELECT, (uint16_t)chip, nullptr });
+      if (response.code != OK) {
+        SetErrorMessage(ERR_MSG_SELECT_CHIP);
+        return; // false;
+      }
+
+      for (uint32_t addr = 0; addr < CHIP_MAX_ADDR; addr += BUFF_SIZE) {
+        // Set address
+        response = ComRPC(Request{ CommandCode::ADDRESS, (uint16_t)addr, nullptr });
+        if (response.code != OK) {
+          SetErrorMessage(ERR_MSG_SET_ADDRESS);
+          if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+          return; // false;
+        }
+
+        _File.read((char*)pBuffer.data(), BUFF_SIZE);
+
+        if (_File.gcount() == 0 || _File.eof()) break;
+
+        // Write EEPROM
+        response = ComRPC(Request{ CommandCode::WRITE, (uint16_t)_File.gcount(), pBuffer.data() });
+        if (response.code != OK) {
+          SetErrorMessage(ERR_MSG_READ_EEPROM);
+          if (m_callbackTaskEnd) m_callbackTaskEnd(false);
+          return; // false;
+        }
+
+        chipWriteBytes += response.param;
+        transferBytes += response.param;
+
+        if (m_callbackProgress) m_callbackProgress((int)100 * transferBytes / totalBytes);
+      }
+
+      if (_File.gcount() == 0 || _File.eof()) break;
+    }
+
+    if (m_callbackProgress) m_callbackProgress(100);
+    if (m_callbackTaskEnd) m_callbackTaskEnd(true);
+    return; // true;
+  }
+
 } // namespace MemBlockTool
