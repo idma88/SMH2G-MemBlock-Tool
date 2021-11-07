@@ -65,10 +65,10 @@ ForEachMacros:
   - BOOST_FOREACH
 IncludeBlocks: Regroup
 IncludeCategories:
+  - Regex:           '^(<|")(boost\/|ext\/|Q)' # Q fot Qt
+    Priority:        2
   - Regex:           '<[[:alnum:]_.]+>' # Standart libraries
     Priority:        1
-  - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
-    Priority:        2
   - Regex:           '.*'
     Priority:        3
 IncludeIsMainRegex: '(Test)?$'
