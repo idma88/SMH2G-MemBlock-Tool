@@ -1,55 +1,74 @@
-#ifndef __PROTOCOL_H__
-#define __PROTOCOL_H__
+#pragma once
 
 #include <stdint.h> // uint8_t, uint16_t
 
 #define ARDUINO_BRIDGE 1
 
-namespace MemBlockTool
-{
-    // Коды команд
-    enum ECommand : char
-    {
-        UNKNOWN     = 0,
-        CHIP_SELECT = 'C',
-        ADDRESS     = 'A',
-        READ        = 'R',
-        WRITE       = 'W'
-    };
+namespace MemBlockTool {
+  // Коды команд
+  enum CommandCode : char
+  {
+    UNKNOWN     = 0,
+    CHIP_SELECT = 'C',
+    ADDRESS     = 'A',
+    READ        = 'R',
+    WRITE       = 'W'
+  };
 
-    // Коды ответов
-    enum EStatus : char
-    {
-        UNDEF = 0,
-        OK    = 'O',
-        ERR   = 'E'
-    };
+  // Коды ответов
+  enum StatusCode : char
+  {
+    UNDEF = 0,
+    OK    = 'O',
+    ERR   = 'E'
+  };
 
-    // Структура запроса
-    struct SRequest
-    {
-        ECommand code;
-        uint16_t param;
-        uint8_t* pPayload;
-    };
+  enum ErrorCode : uint16_t
+  {
+    NO_ERROR            = 0x00,
+    TRANSMISSION_FAILED = 0x01, // Ошибка при передачи данных с/на EEPROM
+    NOTHING_TO_PROCESS  = 0x02, // Размер данных равен нулю
+    PARTIALLY_PROCESSED = 0x03, // Не удалось обработать весь запрос
+    ALLOC_FAILED  = 0x04, // Не удалось выделить память под буфер
+    OUT_OF_BOUND  = 0x05, // Выход за границу
+    UNKNOWN_ERROR = 0xFF
+  };
 
-    // Структура ответа
-    struct SResponse
-    {
-        EStatus code;
-        uint8_t length;
-    };
+#pragma pack(push, 1)
+  // Структура запроса
+  struct Request
+  {
+    CommandCode code;
+    uint16_t    param;
+#ifndef ARDUINO
+    uint8_t* pPayload;
+#endif
+  };
 
-    // Скорость COM порта
-    const unsigned long BAUDRATE = 115200;
+  // Структура ответа
+  struct Response
+  {
+    StatusCode code;
+    uint16_t   param;
+  };
+#pragma pack(pop)
 
-    // Количество EEPROM-микросхем
-    const uint8_t CHIP_COUNT = 4;
+  // Скорость COM порта
+  const unsigned long BAUDRATE = 57600;
+  // const unsigned long BAUDRATE = 115200;
 
-    // Максимальный адрес EEPROM
-    const uint16_t CHIP_MAX_ADDR = 65535;
+  // Количество EEPROM-микросхем
+  const uint8_t CHIP_COUNT = 4;
 
-    // Размер буфера
-    const uint16_t BUFF_SIZE = 256;
+  // Максимальный адрес EEPROM
+  const uint16_t CHIP_MAX_ADDR = 65535;
+
+  // Размер буфера
+  const uint16_t BUFF_SIZE = 256;
+
+  // Размер страницы для записи
+  const uint16_t PAGE_SIZE = 128;
+
+  // Время выполнения записи (мс.)
+  const uint16_t WRITE_TIMEOUT = 5;
 } // namespace MemBlockTool
-#endif // !__PROTOCOL_H__
